@@ -1,5 +1,7 @@
+import motor.motor_asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.config import settings
+import certifi
 
 class Database:
     client: AsyncIOMotorClient = None
@@ -9,17 +11,31 @@ db = Database()
 
 async def get_database():
     if db.database is None:
-        raise Exception("Database not initialized. Please ensure MONGODB_URL is correct and MongoDB is running.")
+        # Try to connect if not connected
+        try:
+            await connect_to_mongo()
+        except Exception as e:
+            raise Exception(f"Database not initialized. Failed to connect: {e}")
     return db.database
 
 async def connect_to_mongo():
     """Create database connection"""
     try:
-        db.client = AsyncIOMotorClient(
-            settings.MONGODB_URL,
-            serverSelectionTimeoutMS=5000, # 5 seconds timeout
-            connectTimeoutMS=5000
-        )
+        # For Atlas connections, some environments need specific SSL/TLS settings
+        kwargs = {
+            "serverSelectionTimeoutMS": 5000,
+            "connectTimeoutMS": 5000,
+        }
+        
+        # Add SSL/TLS options if it's an Atlas connection
+        if "mongodb+srv" in settings.MONGODB_URL:
+            kwargs["tls"] = True
+            kwargs["tlsAllowInvalidCertificates"] = True
+            # Use certifi for macOS SSL issues
+            kwargs["tlsCAFile"] = certifi.where()
+            
+        db.client = AsyncIOMotorClient(settings.MONGODB_URL, **kwargs)
+        
         # Check connection
         await db.client.admin.command('ping')
         db.database = db.client[settings.DATABASE_NAME]
@@ -28,10 +44,11 @@ async def connect_to_mongo():
         print(f"CRITICAL: Failed to connect to MongoDB: {e}")
         db.client = None
         db.database = None
-        raise e
+        # Don't raise here, let the application start so we can see logs
+        # The get_database() will handle the missing connection
 
 async def close_mongo_connection():
     """Close database connection"""
     if db.client:
         db.client.close()
-        print("Disconnected from MongoDB")  
+        print("Disconnected from MongoDB")
