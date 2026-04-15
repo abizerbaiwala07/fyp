@@ -1,0 +1,93 @@
+:root {
+  /* Neon Accents */
+  --neon-blue: #00f0ff;
+  --neon-purple: #b026ff;
+  --neon-green: #00ff66;
+  --neon-pink: #ff0055;
+  --neon-orange: #ff6600;
+
+  /* Status Colors */
+  --status-good: #00ff66;
+  --status-warning: #ffaa00;
+  --status-danger: #ff0055;
+
+  /* Backgrounds */
+  --bg-dark: #0a0a0f;
+  --bg-card: rgba(20, 20, 25, 0.6);
+  --bg-card-hover: rgba(30, 30, 40, 0.8);
+  
+  /* Text */
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0b0;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(176, 38, 255, 0.05), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(0, 240, 255, 0.05), transparent 25%);
+  background-attachment: fixed;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+.glass-panel-hover {
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.glass-panel-hover:hover {
+  background: var(--bg-card-hover);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4), 0 0 15px rgba(0, 240, 255, 0.1);
+}
+
+/* Scrollbar styling for a modern look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Legacy risk classes (kept for backward compatibility if needed) */
+.risk-high { color: var(--status-danger); font-weight: bold; }
+.risk-medium { color: var(--status-warning); font-weight: bold; }
+.risk-low { color: var(--status-good); font-weight: bold; }
+.risk-chip-high { background-color: rgba(255, 0, 85, 0.1); color: var(--status-danger); border: 1px solid rgba(255, 0, 85, 0.3); }
+.risk-chip-medium { background-color: rgba(255, 170, 0, 0.1); color: var(--status-warning); border: 1px solid rgba(255, 170, 0, 0.3); }
+.risk-chip-low { background-color: rgba(0, 255, 102, 0.1); color: var(--status-good); border: 1px solid rgba(0, 255, 102, 0.3); }
