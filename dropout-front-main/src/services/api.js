@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'development' ? '' : 'http://localhost:8000');
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 // Log the API URL for debugging
 if (process.env.NODE_ENV === 'development') {
@@ -12,7 +12,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 15000, // Increased timeout to 15 seconds
+  timeout: 60000, // Increased timeout to 60 seconds for AI/ML tasks
 });
 
 // Attach JWT token from Firebase if present

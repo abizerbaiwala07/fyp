@@ -4,6 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
+import asyncio
 
 from app.database import connect_to_mongo, close_mongo_connection
 from app.routes import students, ml, tenth_standard
@@ -19,20 +20,29 @@ import os
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    await connect_to_mongo()
-    
-    # Train ML model if not already trained
     try:
-        model_info = ml_service.get_model_info()
-        if model_info["status"] == "No model trained":
-            print("Training ML model...")
-            ml_service.train_model()
-            print("ML model trained successfully")
+        await asyncio.wait_for(connect_to_mongo(), timeout=10.0)
+    except asyncio.TimeoutError:
+        print("CRITICAL: MongoDB connection timed out. Check if MongoDB is running.")
     except Exception as e:
-        print(f"Error initializing ML model: {e}")
+        print(f"CRITICAL: Failed to connect to MongoDB: {e}")
+    
+    # Train ML model in a background task to avoid blocking startup
+    def train_model_in_background():
+        try:
+            model_info = ml_service.get_model_info()
+            if model_info["status"] == "No model trained":
+                print("Starting ML model training in background...")
+                ml_service.train_model()
+                print("ML model training completed successfully")
+        except Exception as e:
+            print(f"Error training ML model: {e}")
     
     # Start streak notification background task
     start_streak_notification_task()
+    
+    # Offload training to a separate thread
+    asyncio.create_task(asyncio.to_thread(train_model_in_background))
     
     yield
     
@@ -72,7 +82,7 @@ if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
 app.mount("/api/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-@app.get("/")
+@app.get("/api")
 async def root():
     return {
         "message": "Student Dropout Prediction API",
@@ -81,13 +91,39 @@ async def root():
         "redoc": "/redoc"
     }
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
     return {
         "status": "healthy",
         "database": "connected",
         "ml_model": ml_service.get_model_info()["status"]
     }
+
+# Serve frontend build folder in production - MUST BE LAST
+FRONTEND_BUILD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "dropout-front-main", "build")
+if os.path.exists(FRONTEND_BUILD_DIR):
+    from fastapi.responses import FileResponse
+    
+    # Static files (JS, CSS, etc.)
+    app.mount("/static", StaticFiles(directory=os.path.join(FRONTEND_BUILD_DIR, "static")), name="static")
+    
+    # Catch-all route to serve index.html for client-side routing
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        # Exclude /api paths from frontend routing
+        if full_path.startswith("api"):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="API route not found")
+            
+        # Check if the path exists in the build folder (e.g. logo.png, manifest.json)
+        file_path = os.path.join(FRONTEND_BUILD_DIR, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        
+        # Fallback to index.html for all other routes (React Router handles them)
+        return FileResponse(os.path.join(FRONTEND_BUILD_DIR, "index.html"))
+else:
+    print(f"Frontend build directory not found at {FRONTEND_BUILD_DIR}")
 
 if __name__ == "__main__":
     import uvicorn
