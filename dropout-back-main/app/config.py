@@ -18,6 +18,7 @@ class Settings:
         "https://dropout-front-29gn-ivwe2igbm.vercel.app",
         # Allow Netlify and all subdomains of vercel.app for flexibility
         "https://*.vercel.app",
+        "https://inquisitive-souffle-7cede8.netlify.app",
         "https://*.netlify.app"
     ]
 

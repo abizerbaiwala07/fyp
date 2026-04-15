@@ -63,7 +63,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    allow_origin_regex="https://dropout-front-.*\\.vercel\\.app",
+    allow_origin_regex=r"https://(dropout-front-.*\.vercel\.app|.*\.netlify\.app)",
     expose_headers=["Access-Control-Allow-Origin", "Access-Control-Allow-Credentials"]
 )
 
