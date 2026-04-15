@@ -16,8 +16,9 @@ class Settings:
         "https://dropout-front-29gn-offhna73k-shlok2345788s-projects-l995hi6xk.vercel.app",
         "https://dropout-front-29gn.vercel.app",
         "https://dropout-front-29gn-ivwe2igbm.vercel.app",
-        # Allow all subdomains of vercel.app for flexibility
-        "https://*.vercel.app"
+        # Allow Netlify and all subdomains of vercel.app for flexibility
+        "https://*.vercel.app",
+        "https://*.netlify.app"
     ]
 
     # OAuth / Firebase settings
