@@ -40,7 +40,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { studentAPI } from '../services/api';
 import QuizResultScreen from '../components/quiz/QuizResultScreen';
 
+import { useGamification } from '../contexts/GamificationContext';
+
 const QuizGenerator = () => {
+  const { refreshStudentData } = useGamification();
   const { studentId } = useParams();
   const navigate = useNavigate();
   
@@ -171,6 +174,8 @@ const QuizGenerator = () => {
         setRewardsData(response.data);
         setIsQuizCompleted(true);
         setActiveStep(3);
+        // Sync real-time gamification state
+        refreshStudentData();
       }
     } catch (err) {
       console.error('Error submitting quiz result:', err);
@@ -476,7 +481,7 @@ const QuizGenerator = () => {
         <QuizResultScreen 
           results={rewardsData}
           onRestart={restartQuiz}
-          onGoHome={() => navigate(`/dashboard-modern/${studentId}`)}
+          onGoHome={() => navigate(`/student-dashboard/${studentId}`)}
           score={calculateScore()}
           totalQuestions={quizData.length}
           difficulty={difficulty}

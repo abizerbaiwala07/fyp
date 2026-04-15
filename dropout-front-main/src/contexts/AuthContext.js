@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Box, CircularProgress } from '@mui/material';
 import { onAuthStateChanged, signOut as firebaseSignOut, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase';
 import { studentAPI, authAPI } from '../services/api';
@@ -31,22 +32,44 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Check if user has completed their profile
-  const checkProfileCompletion = async (user) => {
+  const checkProfileCompletion = async (user, directData = null) => {
     try {
+      // Use direct data if provided (e.g., from login response)
+      if (directData) {
+        if (directData.form_completed && directData.student_id) {
+          setProfileCompleted(true);
+          setUserProfile({
+            formCompleted: true,
+            studentId: directData.student_id,
+            email: user.email,
+            displayName: user.displayName || user.email,
+            photoURL: user.photoURL
+          });
+          localStorage.setItem('formCompleted', 'true');
+          localStorage.setItem('demoStudentId', directData.student_id);
+          return true;
+        } else {
+          setProfileCompleted(false);
+          return false;
+        }
+      }
+
       // Check localStorage first for quick response
       const hasCompletedForm = localStorage.getItem('formCompleted') === 'true';
       const studentId = localStorage.getItem('demoStudentId');
       
       if (hasCompletedForm && studentId) {
         setProfileCompleted(true);
-        setUserProfile({
-          formCompleted: true,
-          studentId: studentId,
-          email: user.email,
-          displayName: user.displayName || user.email,
-          photoURL: user.photoURL
-        });
-        return;
+        if (!userProfile) {
+          setUserProfile({
+            formCompleted: true,
+            studentId: studentId,
+            email: user.email,
+            displayName: user.displayName || user.email,
+            photoURL: user.photoURL
+          });
+        }
+        return true;
       }
 
       // Check with backend if available
@@ -54,26 +77,31 @@ export const AuthProvider = ({ children }) => {
         const response = await authAPI.getDashboard();
         if (response.data?.form_completed && response.data?.student_id) {
           setProfileCompleted(true);
+          const sId = response.data.student_id;
           setUserProfile({
             formCompleted: true,
-            studentId: response.data.student_id,
+            studentId: sId,
             email: user.email,
             displayName: user.displayName || user.email,
             photoURL: user.photoURL
           });
           // Update localStorage
           localStorage.setItem('formCompleted', 'true');
-          localStorage.setItem('demoStudentId', response.data.student_id);
+          localStorage.setItem('demoStudentId', sId);
+          return true;
         } else {
           setProfileCompleted(false);
+          return false;
         }
       } catch (apiError) {
-        console.warn('Backend profile check failed, using localStorage fallback');
+        console.warn('Backend profile check failed');
         setProfileCompleted(false);
+        return false;
       }
     } catch (error) {
       console.error('Error checking profile completion:', error);
       setProfileCompleted(false);
+      return false;
     }
   };
 
@@ -129,11 +157,10 @@ export const AuthProvider = ({ children }) => {
       return null;
     }
   };
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
+      try {
+        if (user) {
           const token = await user.getIdToken();
           
           // Store user information
@@ -146,18 +173,19 @@ export const AuthProvider = ({ children }) => {
           
           // Check profile completion status
           await checkProfileCompletion(user);
-        } catch (error) {
-          console.error('Error processing user authentication:', error);
+        } else {
+          // User is logged out
+          localStorage.removeItem('jwt_token');
+          setCurrentUser(null);
+          setProfileCompleted(false);
+          setUserProfile(null);
+          setDashboardData(null);
         }
-      } else {
-        // User is logged out
-        localStorage.removeItem('jwt_token');
-        setCurrentUser(null);
-        setProfileCompleted(false);
-        setUserProfile(null);
-        setDashboardData(null);
+      } catch (error) {
+        console.error('Error in onAuthStateChanged:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -165,6 +193,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = { 
     user: currentUser, 
+    currentUser, // Standardize keys
     logout, 
     loading,
     profileCompleted,
@@ -178,7 +207,21 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {loading ? (
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            minHeight: '100vh',
+            bgcolor: '#121212'
+          }}
+        >
+          <CircularProgress />
+        </Box>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 };

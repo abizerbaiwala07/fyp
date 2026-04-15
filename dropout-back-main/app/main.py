@@ -11,8 +11,10 @@ from app.services.ml_service import ml_service
 from app.config import settings
 from app.tasks.streak_notifications import start_streak_notification_task
 
-# New auth router
-from app.routes import auth
+# New auth and quest routers
+from app.routes import auth, quests
+from fastapi.staticfiles import StaticFiles
+import os
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -60,8 +62,15 @@ app.include_router(auth.router)
 app.include_router(students.router)
 app.include_router(ml.router)
 app.include_router(tenth_standard.router)
+app.include_router(quests.router)
 from app.routes import quiz
 app.include_router(quiz.router, prefix="/api/quiz", tags=["quiz"])
+
+# Serve static files from uploads directory
+UPLOAD_DIR = "uploads"
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
+app.mount("/api/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 @app.get("/")
 async def root():

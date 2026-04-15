@@ -21,10 +21,10 @@ api.interceptors.request.use(
     // Log request for debugging
     console.log('Making API request to:', config.url);
     
-    if (!config.headers || !config.headers.Authorization) {
+    if (!config.headers.Authorization) {
       const jwtToken = localStorage.getItem('jwt_token');
       if (jwtToken) {
-        config.headers = { ...(config.headers || {}), Authorization: `Bearer ${jwtToken}` };
+        config.headers.Authorization = `Bearer ${jwtToken}`;
       }
     }
     return config;
@@ -96,6 +96,21 @@ export const studentAPI = {
   saveDashboardData: (studentId, dashboardData) => api.post(`/api/students/dashboard/${studentId}/save`, dashboardData),
   getAdvisorReport: (studentId) => api.get(`/api/students/advisor-report/${studentId}`),
   submitQuizResult: (resultData) => api.post('/api/quiz/submit_result', resultData),
+  
+  // Unified Gamification Endpoints
+  getMyUnifiedData: () => api.get('/api/students/user/my-data'),
+  logStudy: (hours) => api.post('/api/students/user/log-study', null, { params: { hours } }),
+  updateProgress: (data) => api.put('/api/students/user/update-progress', data),
+  
+  // Report Card AI Analysis
+  extractReportCard: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/api/students/report-card/extract', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  saveReportCard: (data) => api.post('/api/students/report-card/save', data),
 };
 
 // ML API functions
@@ -112,6 +127,15 @@ export const tenthStandardAPI = {
   getRecommendations: (studentId) => api.get(`/api/tenth-standard/recommendations/${studentId}`),
   getStreak: (studentId) => api.get(`/api/tenth-standard/streak/${studentId}`),
   updateStreak: (studentId, data) => api.post(`/api/tenth-standard/streak/${studentId}`, data),
+};
+
+// Quest API
+export const questAPI = {
+  getDailyQuests: (studentId) => api.get('/api/quests/daily', { params: { student_id: studentId } }),
+  startSession: (studentId, questId, duration) => 
+    api.post('/api/quests/session/start', { quest_id: questId, expected_duration: duration }, { params: { student_id: studentId } }),
+  endSession: (studentId, questId, timeSpent, isCompleted = true) => 
+    api.post('/api/quests/session/end', { quest_id: questId, time_spent: timeSpent, is_completed: isCompleted }, { params: { student_id: studentId } }),
 };
 
 // Health check

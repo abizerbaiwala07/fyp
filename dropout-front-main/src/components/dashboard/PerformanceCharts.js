@@ -3,7 +3,8 @@ import {
   Box, Typography, Button, IconButton, Dialog, DialogTitle, DialogContent, 
   TextField, Chip, Alert, Tabs, Tab, Divider 
 } from '@mui/material';
-import { Add, InsertChartOutlined, Insights, Timeline, Close, Category } from '@mui/icons-material';
+import { Add, InsertChartOutlined, Insights, Timeline, Close, Category, Psychology } from '@mui/icons-material';
+import ReportCardUploadModal from './ReportCardUploadModal';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer 
 } from 'recharts';
@@ -27,20 +28,32 @@ const DarkNeonTooltip = ({ active, payload, label }) => {
   return null;
 };
 
-const PerformanceCharts = ({ data: externalData }) => {
-  // Master nested state mapping Subjects -> Array of Score Objects
-  const [subjectData, setSubjectData] = useState({
-    "Mathematics": [
-      { name: "2026-03-01", score: 65 },
-      { name: "2026-03-15", score: 72 },
-      { name: "2026-04-10", score: 84 }
-    ],
-    "Physics": [
-      { name: "2026-03-05", score: 70 },
-      { name: "2026-04-05", score: 68 }
-    ],
-    "Chemistry": []
-  });
+const PerformanceCharts = ({ data: externalData, onRefresh }) => {
+  // Derive subject data from external performance history
+  const [subjectData, setSubjectData] = useState({});
+
+  useEffect(() => {
+    if (externalData && externalData.length > 0) {
+      const grouped = {};
+      externalData.forEach(entry => {
+        const sub = entry.subject || 'General';
+        if (!grouped[sub]) grouped[sub] = [];
+        grouped[sub].push({
+          name: entry.date,
+          score: entry.score,
+          difficulty: entry.difficulty
+        });
+      });
+      setSubjectData(grouped);
+    } else {
+      // Default placeholder if no data
+      setSubjectData({
+        "Mathematics": [],
+        "Physics": [],
+        "Chemistry": []
+      });
+    }
+  }, [externalData]);
 
   const subjects = Object.keys(subjectData);
   const [activeSubject, setActiveSubject] = useState(subjects[0] || '');
@@ -50,6 +63,7 @@ const PerformanceCharts = ({ data: externalData }) => {
   const [addSubjectModal, setAddSubjectModal] = useState(false);
   const [newScore, setNewScore] = useState({ mark: '', date: new Date().toISOString().split('T')[0] });
   const [newSubject, setNewSubject] = useState('');
+  const [reportCardModal, setReportCardModal] = useState(false);
 
   // Protect against empty arrays
   useEffect(() => {
@@ -108,7 +122,7 @@ const PerformanceCharts = ({ data: externalData }) => {
         {/* Horizontal Navigation Menu */}
         <Box sx={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: 2, p: 0.5, border: '1px solid rgba(255,255,255,0.05)' }}>
           <Tabs 
-            value={activeSubject} 
+            value={subjects.includes(activeSubject) ? activeSubject : (subjects[0] || '')} 
             onChange={(e, val) => setActiveSubject(val)}
             variant="scrollable"
             scrollButtons="auto"
@@ -126,6 +140,14 @@ const PerformanceCharts = ({ data: externalData }) => {
           <Divider orientation="vertical" flexItem sx={{ mx: 1, borderColor: 'rgba(255,255,255,0.1)' }} />
           <Button onClick={() => setAddSubjectModal(true)} sx={{ minWidth: 'auto', p: 1, color: 'var(--neon-blue)', '&:hover': { background: 'rgba(0, 240, 255, 0.1)' } }} title="Add New Subject">
              <Add fontSize="small" />
+          </Button>
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5, borderColor: 'rgba(255,255,255,0.1)' }} />
+          <Button 
+            onClick={() => setReportCardModal(true)} 
+            sx={{ minWidth: 'auto', p: 1, color: 'var(--neon-green)', '&:hover': { background: 'rgba(0, 204, 85, 0.1)' } }} 
+            title="AI Report Extraction"
+          >
+             <Psychology fontSize="small" />
           </Button>
         </Box>
       </Box>
@@ -260,6 +282,15 @@ const PerformanceCharts = ({ data: externalData }) => {
           </Box>
         </DialogContent>
       </Dialog>
+
+      <ReportCardUploadModal 
+        open={reportCardModal} 
+        onClose={() => setReportCardModal(false)}
+        onRefresh={() => {
+          if (onRefresh) onRefresh();
+          // Also local state refresh if needed, but the parent should handle it
+        }}
+      />
     </GlassCard>
   );
 };

@@ -4,6 +4,9 @@ from app.config import settings
 from app.models.student import Student
 from typing import Optional
 import json
+import base64
+import fitz # PyMuPDF for PDF extraction
+import io
 
 class AIService:
     def __init__(self):
@@ -170,5 +173,125 @@ Keep it short and punchy.
             return response.text.strip()
         except:
             return "Solid attempt! Review the explanations to strengthen your concept mastery."
+
+    async def extract_report_card_data(self, file_content: bytes, file_type: str) -> dict:
+        """
+        Extract subject names and marks from a report card (Image or PDF) using Gemini.
+        """
+        if not self.model:
+            raise Exception("Gemini AI is not configured. Missing API Key.")
+
+        content_to_analyze = []
+        
+        if "image" in file_type:
+            content_to_analyze.append({
+                "mime_type": file_type,
+                "data": file_content
+            })
+        elif "pdf" in file_type:
+            try:
+                import fitz
+                pdf_stream = io.BytesIO(file_content)
+                doc = fitz.open(stream=pdf_stream, filetype="pdf")
+                extracted_text = ""
+                for page in doc:
+                    extracted_text += page.get_text()
+                content_to_analyze.append(f"Extracted PDF Text Content:\n{extracted_text}")
+            except Exception as e:
+                print(f"PDF Extraction Error: {e}")
+                raise Exception("Failed to read the PDF document.")
+
+        prompt = """
+You are an expert data extraction AI. Specialized in academic report cards and marksheets.
+Task: Extract all subjects and their corresponding marks/scores from the provided document.
+
+Instructions:
+1. Identify the subject name and the numeric score.
+2. If the score is out of 100, just provide the mark. 
+3. If the score is a grade (A, B, C), try to map it to a representative percentage (A=90, B=80, C=70, etc.).
+4. Ignore headers, student names, and non-subject rows.
+5. If you find a date on the report card, extract it in YYYY-MM-DD format. Default to today's date if not found.
+6. Output NOTHING but a valid JSON object.
+
+JSON Schema:
+{
+  "date": "YYYY-MM-DD",
+  "subjects": [
+    { "name": "Subject Name", "score": integer }
+  ]
+}
+"""
+
+        try:
+            final_content = [prompt] + content_to_analyze
+            response = await asyncio.to_thread(self.model.generate_content, final_content)
+            
+            json_str = response.text.strip()
+            if "```" in json_str:
+                import re
+                match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", json_str)
+                if match: json_str = match.group(1)
+            
+            return json.loads(json_str)
+        except Exception as e:
+            print(f"AI Extraction Error: {e}")
+            raise Exception("Failed to extract data from report card. Please ensure the file is clear.")
+
+    async def verify_quest_proof(self, quest_title: str, quest_desc: str, submission_text: str = None, file_content: bytes = None, file_type: str = None) -> dict:
+        """
+        Verify quest proof using Gemini. Supports text, images, and PDFs.
+        """
+        if not self.model:
+            return {"verified": True, "reason": "AI verification skipped (not configured)."}
+
+        content_to_analyze = []
+        
+        if submission_text:
+            content_to_analyze.append(f"Student Submission Text: {submission_text}")
+
+        if file_content and file_type:
+            if "image" in file_type:
+                content_to_analyze.append({
+                    "mime_type": file_type,
+                    "data": file_content
+                })
+            elif "pdf" in file_type:
+                try:
+                    import fitz
+                    pdf_stream = io.BytesIO(file_content)
+                    doc = fitz.open(stream=pdf_stream, filetype="pdf")
+                    extracted_text = ""
+                    for page in doc:
+                        extracted_text += page.get_text()
+                    content_to_analyze.append(f"Extracted PDF Content:\n{extracted_text[:10000]}")
+                except Exception as e:
+                    print(f"PDF Extraction Error: {e}")
+                    return {"verified": False, "reason": "Failed to read the PDF document."}
+
+        prompt = f"""
+You are an intelligent educational supervisor. Verify if a student has completed their daily quest based on the provided proof.
+Quest Title: {quest_title}
+Quest Goal: {quest_desc}
+
+Output format (JSON ONLY):
+{{
+  "verified": boolean,
+  "reason": "Short explanation"
+}}
+"""
+        try:
+            final_content = [prompt] + content_to_analyze
+            response = await asyncio.to_thread(self.model.generate_content, final_content)
+            
+            json_str = response.text.strip()
+            if "```" in json_str:
+                import re
+                match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", json_str)
+                if match: json_str = match.group(1)
+            
+            return json.loads(json_str)
+        except Exception as e:
+            print(f"AI Verification Error: {e}")
+            return {"verified": True, "reason": "Verification bypassed due to technical error."}
 
 ai_service = AIService()

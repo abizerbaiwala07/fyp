@@ -8,6 +8,7 @@ import Navbar from './components/Navbar';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
+import { GamificationProvider } from './contexts/GamificationContext';
 
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
@@ -38,116 +39,118 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <ErrorBoundary>
-            <Routes>
-              {/* Public routes without navbar */}
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              
-              {/* Protected routes with navbar */}
-              <Route path="/dashboard" element={
-                <ProtectedRoute requireAuth={true}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-                    <Navbar />
-                    <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-                      <StudentDashboardWrapper />
+        <GamificationProvider>
+          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <ErrorBoundary>
+              <Routes>
+                {/* Public routes without navbar */}
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                
+                {/* Protected routes with navbar */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute requireAuth={true}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+                      <Navbar />
+                      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+                        <StudentDashboardWrapper />
+                      </Box>
                     </Box>
-                  </Box>
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/students" element={
-                <ProtectedRoute requireAuth={true}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-                    <Navbar />
-                    <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-                      <Students />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/students" element={
+                  <ProtectedRoute requireAuth={true}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+                      <Navbar />
+                      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+                        <Students />
+                      </Box>
                     </Box>
-                  </Box>
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/student/:id" element={
-                <ProtectedRoute requireAuth={true}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-                    <Navbar />
-                    <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-                      <StudentDetail />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/student/:id" element={
+                  <ProtectedRoute requireAuth={true}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+                      <Navbar />
+                      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+                        <StudentDetail />
+                      </Box>
                     </Box>
-                  </Box>
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/achievements/:studentId" element={
-                <ProtectedRoute requireAuth={true}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-                    <Navbar />
-                    <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-                      <AchievementsGuide />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/achievements/:studentId" element={
+                  <ProtectedRoute requireAuth={true}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+                      <Navbar />
+                      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+                        <AchievementsGuide />
+                      </Box>
                     </Box>
-                  </Box>
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/analytics" element={
-                <ProtectedRoute requireAuth={true}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-                    <Navbar />
-                    <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-                      <Analytics />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/analytics" element={
+                  <ProtectedRoute requireAuth={true}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+                      <Navbar />
+                      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+                        <Analytics />
+                      </Box>
                     </Box>
-                  </Box>
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/tenth-standard-form" element={
-                <ProtectedRoute requireAuth={true}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-                    <Navbar />
-                    <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-                      <TenthStandardForm />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/tenth-standard-form" element={
+                  <ProtectedRoute requireAuth={true}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+                      <Navbar />
+                      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+                        <TenthStandardForm />
+                      </Box>
                     </Box>
-                  </Box>
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/comprehensive-form" element={
-                <ProtectedRoute requireAuth={true}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-                    <Navbar />
-                    <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-                      <ComprehensiveStudentForm />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/comprehensive-form" element={
+                  <ProtectedRoute requireAuth={true}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+                      <Navbar />
+                      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+                        <ComprehensiveStudentForm />
+                      </Box>
                     </Box>
-                  </Box>
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/student-dashboard/:studentId" element={
-                <ProtectedRoute requireAuth={true} requireFormCompletion={true}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-                    <Navbar />
-                    <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-                      <StudentDashboard />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/student-dashboard/:studentId" element={
+                  <ProtectedRoute requireAuth={true} requireFormCompletion={true}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+                      <Navbar />
+                      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+                        <StudentDashboard />
+                      </Box>
                     </Box>
-                  </Box>
-                </ProtectedRoute>
-              } />
-
-              <Route path="/quiz-generator/:studentId" element={
-                <ProtectedRoute requireAuth={true} requireFormCompletion={true}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-                    <Navbar />
-                    <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-                      <QuizGenerator />
+                  </ProtectedRoute>
+                } />
+  
+                <Route path="/quiz-generator/:studentId" element={
+                  <ProtectedRoute requireAuth={true} requireFormCompletion={true}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+                      <Navbar />
+                      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+                        <QuizGenerator />
+                      </Box>
                     </Box>
-                  </Box>
-                </ProtectedRoute>
-              } />
-            </Routes>
-          </ErrorBoundary>
-        </Router>
+                  </ProtectedRoute>
+                } />
+              </Routes>
+            </ErrorBoundary>
+          </Router>
+        </GamificationProvider>
       </AuthProvider>
     </ThemeProvider>
   );

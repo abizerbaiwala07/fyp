@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   Box,
   Grid,
@@ -33,7 +33,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const Login = () => {
   const navigate = useNavigate();
-  const { user, profileCompleted } = useAuth();
+  const location = useLocation();
+  const { user, profileCompleted, userProfile, checkProfileCompletion } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -42,12 +43,23 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
 
   useEffect(() => {
-    if (user && profileCompleted) {
-      navigate('/dashboard');
-    } else if (user && !profileCompleted) {
-      navigate('/comprehensive-form');
+    // This useEffect handles initial load/refresh redirects
+    // Only redirect if we are purely on the login page and fully loaded
+    if (user && profileCompleted && (location.pathname === '/login' || location.pathname === '/signup')) {
+      const studentId = userProfile?.studentId || localStorage.getItem('demoStudentId');
+      
+      // If we have a previous location, go there, otherwise go to dashboard
+      const from = location.state?.from?.pathname;
+      
+      if (from && from !== '/login' && from !== '/signup') {
+        navigate(from, { replace: true });
+      } else if (studentId) {
+        navigate(`/student-dashboard/${studentId}`, { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     }
-  }, [user, profileCompleted, navigate]);
+  }, [user, profileCompleted, userProfile, navigate, location.pathname, location.state]);
 
   const handleEmailLogin = async (e) => {
     e.preventDefault();
@@ -56,11 +68,16 @@ const Login = () => {
     
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
-      try {
-        const idToken = await cred.user.getIdToken();
-        await authAPI.firebaseAuthLogin(idToken);
-      } catch (backendError) {
-        console.error('Backend sync error:', backendError);
+      const idToken = await cred.user.getIdToken();
+      const response = await authAPI.firebaseAuthLogin(idToken);
+      
+      // Immediately update auth context with backend profile status
+      const isCompleted = await checkProfileCompletion(cred.user, response.data.user);
+      
+      if (isCompleted && response.data.user.student_id) {
+        navigate(`/student-dashboard/${response.data.user.student_id}`);
+      } else {
+        navigate('/comprehensive-form');
       }
     } catch (err) {
       console.error('Login error:', err);
@@ -89,11 +106,16 @@ const Login = () => {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      try {
-        const idToken = await result.user.getIdToken();
-        await authAPI.googleVerify({ id_token: idToken });
-      } catch (backendError) {
-        console.error('Backend sync error:', backendError);
+      const idToken = await result.user.getIdToken();
+      const response = await authAPI.googleVerify({ id_token: idToken });
+      
+      // Use backend truth to determine redirect
+      const isCompleted = await checkProfileCompletion(result.user, response.data.user);
+      
+      if (isCompleted && response.data.user.student_id) {
+        navigate(`/student-dashboard/${response.data.user.student_id}`);
+      } else {
+        navigate('/comprehensive-form');
       }
     } catch (err) {
       console.error('Google login error:', err);

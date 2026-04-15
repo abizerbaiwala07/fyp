@@ -97,71 +97,33 @@ async def submit_quiz_result(
         rewards = gamification_service.calculate_quiz_rewards(score_pct, time_taken, num_questions)
         xp_gained = rewards["xp_earned"]
         
-        # 2. Get/Initialize Dashboard Data
-        doc = await db.student_dashboard_data.find_one({"student_id": student_id})
-        if not doc:
-            # Initialize if not exists
-            data = {
-                "exam_scores": [],
-                "study_streak": 0,
-                "achievements": [],
-                "total_study_time": 0,
-                "current_xp": 0,
-                "current_level": 1
+        # 1. Update Gamification using Centralized Service
+        from app.services.gamification_service import gamification_service
+        
+        rewards_result = await gamification_service.update_student_gamification(
+            student_id=student_id,
+            action_type="quiz",
+            action_data={
+                "score_pct": score_pct,
+                "time_taken": time_taken,
+                "num_questions": num_questions,
+                "subject": subject,
+                "difficulty": difficulty
             }
-        else:
-            data = doc.get("data", {})
-            
-        # 3. Update Progress
-        current_xp = data.get("current_xp", 0)
-        progress = gamification_service.update_level_progress(current_xp, xp_gained)
-        
-        data["current_xp"] = progress["total_xp"]
-        data["current_level"] = progress["current_level"]
-        
-        # 4. Save Score to History
-        score_entry = {
-            "subject": subject,
-            "score": score_pct,
-            "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-            "difficulty": difficulty
-        }
-        if "exam_scores" not in data:
-            data["exam_scores"] = []
-        data["exam_scores"].append(score_entry)
-        
-        # 5. Check Achievements
-        quiz_count = len([s for s in data["exam_scores"] if s.get("score") is not None])
-        new_badges = gamification_service.check_achievements(quiz_count, score_pct, data.get("achievements", []))
-        
-        if "achievements" not in data:
-            data["achievements"] = []
-            
-        for badge in new_badges:
-            badge["unlocked"] = True
-            badge["date"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            data["achievements"].append(badge)
-            
-        # 6. Get AI Feedback
-        ai_feedback = await ai_service.generate_quiz_feedback(score_pct, subject, difficulty)
-        
-        # 7. Persist to DB
-        await db.student_dashboard_data.update_one(
-            {"student_id": student_id},
-            {"$set": {"student_id": student_id, "data": data, "updated_at": datetime.now(timezone.utc)}},
-            upsert=True
         )
+        
+        # 2. Get AI Feedback
+        ai_feedback = await ai_service.generate_quiz_feedback(score_pct, subject, difficulty)
         
         return {
             "status": "success",
-            "xp_gained": xp_gained,
-            "bonuses": rewards["bonuses"],
-            "new_total_xp": progress["total_xp"],
-            "new_level": progress["current_level"],
-            "xp_in_level": progress["xp_in_current_level"],
-            "progress_pct": progress["progress_pct"],
-            "new_badges": new_badges,
-            "ai_feedback": ai_feedback
+            "xp_gained": rewards_result.get("xp_gained", 0),
+            "new_total_xp": rewards_result.get("new_xp"),
+            "new_level": rewards_result.get("new_level"),
+            "streak": rewards_result.get("streak"),
+            "new_badges": rewards_result.get("new_badges", []),
+            "ai_feedback": ai_feedback,
+            "gamification_feedback": rewards_result.get("feedback", [])
         }
         
     except Exception as e:

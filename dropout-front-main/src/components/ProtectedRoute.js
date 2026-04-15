@@ -4,23 +4,21 @@ import { useAuth } from '../contexts/AuthContext';
 import { Box, CircularProgress } from '@mui/material';
 
 const ProtectedRoute = ({ children, requireAuth = true, requireFormCompletion = false }) => {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, profileCompleted, userProfile, loading } = useAuth();
   const location = useLocation();
-  
-  // Get user info from localStorage (fallback)
-  const userEmail = localStorage.getItem('userEmail');
-  const hasCompletedForm = localStorage.getItem('formCompleted') === 'true';
-  const studentId = localStorage.getItem('demoStudentId');
+
+  // Get student info from profile if available
+  const studentId = userProfile?.studentId || localStorage.getItem('demoStudentId');
 
   // Show loading spinner while checking auth state
   if (loading) {
     return (
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          minHeight: '100vh' 
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh'
         }}
       >
         <CircularProgress />
@@ -29,19 +27,19 @@ const ProtectedRoute = ({ children, requireAuth = true, requireFormCompletion = 
   }
 
   // Check if authentication is required
-  if (requireAuth && !currentUser && !userEmail) {
+  if (requireAuth && !currentUser) {
     // Redirect to login page, but remember where they were trying to go
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // Check if form completion is required
-  if (requireFormCompletion && (!hasCompletedForm || !studentId)) {
+  if (requireFormCompletion && !profileCompleted) {
     // Redirect to form completion
     return <Navigate to="/comprehensive-form" replace />;
   }
 
   // If user has completed form and is trying to access the form again, redirect to dashboard
-  if (hasCompletedForm && studentId && location.pathname === '/comprehensive-form') {
+  if (profileCompleted && studentId && location.pathname === '/comprehensive-form') {
     return <Navigate to={`/student-dashboard/${studentId}`} replace />;
   }
 

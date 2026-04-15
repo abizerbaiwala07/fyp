@@ -60,12 +60,38 @@ class StudentUpdate(BaseModel):
     degree_type: Optional[str] = None
     degree_year: Optional[int] = None
     current_cgpa: Optional[float] = None
+    
+    # Gamification and Tracking
+    total_study_hours: Optional[float] = None
+    daily_study_hours: Optional[float] = None
+    streak: Optional[int] = None
+    last_study_date: Optional[str] = None
+    xp: Optional[int] = None
+    current_level: Optional[int] = None
+    completed_challenges: Optional[List[str]] = None
+    performance_data: Optional[List[dict]] = None
+    badges: Optional[List[dict]] = None
 
 class Student(StudentBase):
     id: Optional[str] = Field(None, alias="_id", description="MongoDB ObjectId as string")
     user_email: Optional[str] = Field(None, description="Linked user email")
     dropout_probability: Optional[float] = Field(None, description="Predicted dropout probability")
     risk_level: Optional[str] = Field(None, description="Risk level (Low/Medium/High)")
+    
+    # Gamification
+    xp: int = Field(default=0, description="Total experience points")
+    current_level: int = Field(default=1, description="Current student level")
+    quests_completed: int = Field(default=0, description="Total number of quests completed")
+    
+    # New Gamification Fields
+    total_study_hours: float = Field(default=0.0, description="Total hours studied")
+    daily_study_hours: float = Field(default=0.0, description="Hours studied today")
+    streak: int = Field(default=0, description="Current study streak")
+    last_study_date: Optional[str] = Field(None, description="ISO date of last study session")
+    completed_challenges: List[str] = Field(default_factory=list, description="IDs of completed challenges")
+    performance_data: List[dict] = Field(default_factory=list, description="Quiz performance history")
+    badges: List[dict] = Field(default_factory=list, description="Earned badges")
+    
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

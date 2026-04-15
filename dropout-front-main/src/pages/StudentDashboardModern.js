@@ -15,9 +15,14 @@ import GamificationSection from '../components/dashboard/GamificationSection';
 import PerformanceCharts from '../components/dashboard/PerformanceCharts';
 import EngagementWidget from '../components/dashboard/EngagementWidget';
 
+// Context
+import { useGamification } from '../contexts/GamificationContext';
+
 const StudentDashboardModern = () => {
   const { studentId } = useParams();
   const navigate = useNavigate();
+  const { studentData, loading: gamificationLoading, refreshStudentData } = useGamification();
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -25,33 +30,16 @@ const StudentDashboardModern = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [aiReport, setAiReport] = useState('');
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [examScores, setExamScores] = useState([]);
-  const [studyStreak, setStudyStreak] = useState(0);
-  const [achievements, setAchievements] = useState([]);
-  const [totalStudyTime, setTotalStudyTime] = useState(0);
-  const [currentXP, setCurrentXP] = useState(0);
-  const [currentLevel, setCurrentLevel] = useState(1);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch core dashboard data
+        // Fetch core dashboard data (recommendations, student info)
         const response = await studentAPI.getDashboard(studentId).catch(() => tenthStandardAPI.getDashboard(studentId));
         if (response && response.data) {
           setDashboardData(response.data);
-          
-          const savedData = response.data.dashboard_data || {};
-          if (savedData.exam_scores) setExamScores(savedData.exam_scores);
-          if (savedData.total_study_time) setTotalStudyTime(savedData.total_study_time);
-          if (savedData.achievements) setAchievements(savedData.achievements);
-          if (savedData.current_xp) setCurrentXP(savedData.current_xp);
-          if (savedData.current_level) setCurrentLevel(savedData.current_level);
         }
-
-        // Fetch Streak
-        const streakData = await streakService.getStreak(studentId);
-        setStudyStreak(streakData.streak_count || 0);
 
         // Fetch cached AI report if any
         const savedReport = localStorage.getItem(`aiReport_${studentId}`);
@@ -132,7 +120,7 @@ const StudentDashboardModern = () => {
         <Grid item xs={12} md={4} lg={3}>
           <StatWidget 
             title="Study Streak" 
-            value={studyStreak} 
+            value={studentData?.streak || 0} 
             subtitle="Days" 
             icon={<LocalFireDepartment fontSize="large" />} 
             color="var(--neon-orange)" 
@@ -141,14 +129,14 @@ const StudentDashboardModern = () => {
         <Grid item xs={12} md={4} lg={3}>
           <StatWidget 
             title="Total Study Time" 
-            value={Math.floor(totalStudyTime)} 
+            value={Math.floor(studentData?.total_study_hours || 0)} 
             subtitle="Hours" 
             icon={<Timeline fontSize="large" />} 
             color="var(--neon-green)" 
           />
         </Grid>
         <Grid item xs={12} md={4} lg={6}>
-           <GamificationSection currentXP={currentXP} currentLevel={currentLevel} achievements={achievements} />
+           <GamificationSection />
         </Grid>
 
         {/* Quick Actions Row */}
@@ -222,7 +210,10 @@ const StudentDashboardModern = () => {
         {/* Bottom Row: Charts & Extra Data */}
         <Grid item xs={12}>
            <Box sx={{ mt: 1 }}>
-              <PerformanceCharts data={examScores} />
+              <PerformanceCharts 
+                data={studentData?.performance_data || []} 
+                onRefresh={refreshStudentData}
+              />
            </Box>
         </Grid>
 

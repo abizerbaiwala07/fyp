@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Depends, File, UploadFile
 from typing import List, Optional
 from datetime import datetime, timezone
 from app.models.student import (
@@ -97,18 +97,8 @@ async def get_student_dashboard(
               current_user.get("role") not in ["admin", "teacher"]):
             raise HTTPException(status_code=403, detail="Access denied")
         
-        # Get dashboard data from database
-        dashboard_data = await db.student_dashboard_data.find_one({"student_id": student_id})
-        
-        # Derive safe values from Student model (which may not have 10th-standard fields)
-        derived_tenth_pct = getattr(student, 'tenth_percentage', None)
-        if derived_tenth_pct is None:
-            try:
-                # Approximate from current GPA (0-4 scale -> 0-100)
-                derived_tenth_pct = int(max(0.0, min(4.0, (student.current_gpa or 3.0))) / 4.0 * 100)
-            except Exception:
-                derived_tenth_pct = 75
-
+        # Get dashboard data from database (legacy support)
+        # But we prioritize unified data in Student object
         return {
             "student_info": {
                 "name": student.name,
@@ -116,12 +106,16 @@ async def get_student_dashboard(
                 "age": student.age,
                 "current_class": getattr(student, 'current_level', '12th'),
                 "current_stream": getattr(student, 'stream', 'Science'),
-                "tenth_percentage": derived_tenth_pct,
+                "tenth_percentage": getattr(student, 'tenth_percentage', 75),
                 "current_attendance": getattr(student, 'attendance_rate', 85),
                 "target_exam": getattr(student, 'target_exam', 'JEE Main'),
-                "exam_start_month": "January",
-                "exam_end_month": "April",
-                "preparation_months": 18
+                "total_study_hours": student.total_study_hours,
+                "daily_study_hours": student.daily_study_hours,
+                "streak": student.streak,
+                "xp": student.xp,
+                "level": student.current_level,
+                "badges": student.badges,
+                "performance_data": student.performance_data
             },
             "recommendations": {
                 "dropout_risk": student.risk_level or 'Low',
@@ -135,35 +129,8 @@ async def get_student_dashboard(
                     "Good attendance record",
                     "Clear career goals",
                     "Family support available"
-                ],
-                "academic_improvements": [
-                    "Increase daily study hours to 6-7 hours",
-                    "Practice more mock tests",
-                    "Focus on conceptual understanding",
-                    "Regular revision schedule"
-                ],
-                "subject_focus_areas": [
-                    "Mathematics - Calculus and Algebra",
-                    "Physics - Mechanics and Thermodynamics",
-                    "Chemistry - Organic Chemistry"
-                ],
-                "immediate_actions": [
-                    "Complete pending assignments",
-                    "Take a practice test this week",
-                    "Review last month's topics"
-                ],
-                "short_term_goals": [
-                    "Improve mock test scores by 10%",
-                    "Complete syllabus by December",
-                    "Join study group or coaching"
-                ],
-                "long_term_goals": [
-                    "Score 95+ percentile in target exam",
-                    "Get admission in top college",
-                    "Build strong foundation for career"
                 ]
-            },
-            "dashboard_data": dashboard_data.get("data") if dashboard_data else None
+            }
         }
         
     except HTTPException:
@@ -449,3 +416,105 @@ def generate_recommendations(student):
     ])
     
     return recommendations
+
+@router.get("/user/my-data", response_model=Student)
+async def get_my_unified_data(current_user: dict = Depends(get_current_user)):
+    """Unified endpoint to get all student data including gamification"""
+    # 1. Try by email
+    student = await student_service.get_student_by_user_email(current_user["email"])
+    
+    # 2. Try by student_id linked in user account if email fails
+    if not student and current_user.get("student_id"):
+        student = await student_service.get_student_by_student_id(current_user["student_id"])
+        if student:
+            # Fix the linkage for future requests
+            db = await get_database()
+            await db.students.update_one(
+                {"student_id": student.student_id},
+                {"$set": {"user_email": current_user["email"], "updated_at": datetime.now(timezone.utc)}}
+            )
+
+    if not student:
+        raise HTTPException(status_code=404, detail="Student profile not found")
+    return student
+
+@router.post("/user/log-study")
+async def log_study_session(
+    hours: float,
+    current_user: dict = Depends(get_current_user)
+):
+    """Log a study session and update gamification metrics"""
+    from app.services.gamification_service import gamification_service
+    
+    # Use my-data logic to find student
+    student = await get_my_unified_data(current_user)
+    
+    result = await gamification_service.update_student_gamification(
+        student_id=student.student_id,
+        action_type="study_session",
+        action_data={"hours": hours}
+    )
+    return result
+
+@router.post("/report-card/extract")
+async def extract_report_card(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Extract data from a report card upload"""
+    try:
+        content = await file.read()
+        extracted_data = await ai_service.extract_report_card_data(content, file.content_type)
+        return extracted_data
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/report-card/save")
+async def save_report_card_data(
+    data: dict, # Format: { date: "YYYY-MM-DD", subjects: [{ name: "Math", score: 85 }, ...] }
+    current_user: dict = Depends(get_current_user)
+):
+    """Save verified report card data to student performance history"""
+    try:
+        student = await get_my_unified_data(current_user)
+        db = await get_database()
+        
+        new_entries = []
+        for sub in data.get("subjects", []):
+            new_entries.append({
+                "date": data.get("date"),
+                "subject": sub.get("name"),
+                "score": sub.get("score"),
+                "type": "report_card",
+                "difficulty": "N/A"
+            })
+            
+        if new_entries:
+            await db.students.update_one(
+                {"student_id": student.student_id},
+                {"$push": {"performance_data": {"$each": new_entries}}}
+            )
+            
+        return {"message": f"Successfully updated {len(new_entries)} metrics", "count": len(new_entries)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/user/update-progress")
+async def update_student_progress(
+    progress_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Generic endpoint to update student progress/gamification externally"""
+    from app.services.gamification_service import gamification_service
+    
+    # Use my-data logic to find student
+    student = await get_my_unified_data(current_user)
+    
+    result = await gamification_service.update_student_gamification(
+        student_id=student.student_id,
+        action_type=progress_data.get("type", "quest"),
+        action_data=progress_data.get("data", {})
+    )
+    return result

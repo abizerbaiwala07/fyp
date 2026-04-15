@@ -29,6 +29,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { studentAPI, authAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoIcon from '@mui/icons-material/Info';
 
@@ -43,19 +44,14 @@ const steps = [
 
 const ComprehensiveStudentForm = () => {
   const navigate = useNavigate();
+  const { markProfileCompleted } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [activeStep, setActiveStep] = useState(0);
 
-  // If user already completed form earlier, redirect to dashboard on mount
-  useEffect(() => {
-    const studentId = localStorage.getItem('demoStudentId');
-    const formCompleted = localStorage.getItem('formCompleted') === 'true';
-    if (formCompleted && studentId) {
-      navigate(`/student-dashboard/${studentId}`);
-    }
-  }, [navigate]);
+  // Redundant check removed as ProtectedRoute now handles this
+
 
   // Helper: ensure tokens before protected API calls
   const ensureAuthTokens = async () => {
@@ -355,6 +351,11 @@ const ComprehensiveStudentForm = () => {
 
       // Store student ID and mark form as completed
       const studentId = response.data.student_id;
+      
+      // Update global auth state immediately
+      markProfileCompleted(studentId);
+
+      // Backwards compatibility/persistence
       localStorage.setItem('demoStudentId', studentId);
       localStorage.setItem('formCompleted', 'true');
 

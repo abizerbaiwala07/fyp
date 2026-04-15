@@ -296,12 +296,6 @@ async def signup(user_data: UserCreate, db=Depends(get_database), request: Reque
         
         user_response = user_to_response(user_doc)
         
-        response = AuthResponse(
-            user=user_response,
-            access_token=access_token,
-            token_type="bearer"
-        )
-        
         return response
         
     except HTTPException:
@@ -334,10 +328,7 @@ async def login(user_credentials: UserLogin, db=Depends(get_database), request: 
         token_type="bearer"
     )
     
-    # Add CORS headers
-    origin = request.headers.get("origin", "*") if request else "*"
-    json_response = JSONResponse(content=response.dict())
-    return add_cors_headers(json_response, origin)
+    return response
 
 # Google Authentication Endpoints
 @router.post("/google-verify", response_model=AuthResponse)
@@ -395,10 +386,7 @@ async def google_verify(payload: GoogleVerifyPayload, db=Depends(get_database), 
         token_type="bearer"
     )
     
-    # Add CORS headers
-    origin = request.headers.get("origin", "*") if request else "*"
-    json_response = JSONResponse(content=response.dict())
-    return add_cors_headers(json_response, origin)
+    return response
 
 # JWT Token verification for protected routes
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db=Depends(get_database)):
@@ -471,20 +459,14 @@ async def check_clerk_status(request: Request = None):
             "secret_key_preview": f"{clerk_secret_key[:15]}..."
         }
     
-    # Add CORS headers
-    origin = request.headers.get("origin", "*") if request else "*"
-    json_response = JSONResponse(content=response_data)
-    return add_cors_headers(json_response, origin)
+    return response_data
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(current_user: dict = Depends(get_current_user), request: Request = None):
     """Get current user information"""
     response = user_to_response(current_user)
     
-    # Add CORS headers
-    origin = request.headers.get("origin", "*") if request else "*"
-    json_response = JSONResponse(content=response.dict())
-    return add_cors_headers(json_response, origin)
+    return response
 
 
 @router.post("/complete-form")
@@ -550,11 +532,21 @@ async def get_user_dashboard(
                     "redirect_to": "/comprehensive-form"
                 }
             else:
+                # Convert student ObjectId
+                if "_id" in student:
+                    student["_id"] = str(student["_id"])
+                    
                 # Get dashboard data
                 dashboard_data = await db.dashboard_data.find_one({"student_id": student_id})
+                if dashboard_data and "_id" in dashboard_data:
+                    dashboard_data["_id"] = str(dashboard_data["_id"])
                 
                 # Get interventions
-                interventions = await db.interventions.find({"student_id": student_id}).to_list(length=None)
+                interventions_cursor = db.interventions.find({"student_id": student_id})
+                interventions = await interventions_cursor.to_list(length=None)
+                for intervention in interventions:
+                    if "_id" in intervention:
+                        intervention["_id"] = str(intervention["_id"])
                 
                 response_data = {
                     "form_completed": True,
@@ -690,10 +682,7 @@ async def google_verify_legacy(payload: GoogleVerifyPayload, db=Depends(get_data
     
     response_data = {"user": user}
     
-    # Add CORS headers
-    origin = request.headers.get("origin", "*") if request else "*"
-    json_response = JSONResponse(content=response_data)
-    return add_cors_headers(json_response, origin)
+    return response_data
 
 @router.post("/clerk-auth")
 async def clerk_auth_login(
